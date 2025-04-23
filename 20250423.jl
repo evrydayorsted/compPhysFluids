@@ -269,12 +269,19 @@ end
 	end
 end
 
-# ╔═╡ 06c7970f-a49f-4ec9-8bf2-44112b5bc860
+# ╔═╡ 7d19c015-a945-4d93-9c82-5c5c7e06569b
 @time for i in -1:1
-	@threads for j in -1:1
-		get_images(i, j)
+	for j in -1:1
+		get_images(i, j, save=false)
 	end
 end
+
+# ╔═╡ 06c7970f-a49f-4ec9-8bf2-44112b5bc860
+# @time for i in -1:1
+# 	@threads for j in -1:1
+# 		get_images(i, j)
+# 	end
+# end
 
 # ╔═╡ eb2a643b-3ada-463b-9f4b-54db56e2bddb
 
@@ -542,6 +549,7 @@ version = "1.52.0+1"
 # ╠═e082309c-e705-4c22-8e27-482930120c5f
 # ╠═8c063ce1-3095-450f-946f-1c8dfe87c6f2
 # ╠═f24b51d8-fc98-4f60-8223-0f5c0dc87d19
+# ╠═7d19c015-a945-4d93-9c82-5c5c7e06569b
 # ╠═06c7970f-a49f-4ec9-8bf2-44112b5bc860
 # ╠═eb2a643b-3ada-463b-9f4b-54db56e2bddb
 # ╠═0e2d2b2d-5f74-437a-aedf-ee9eb3d9b579
