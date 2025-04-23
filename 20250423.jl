@@ -119,7 +119,7 @@ begin
 	deltaU=1e-7;
 
 
-	function get_images(xshift, yshift, save=true, convergencePlot=false)
+	function get_images(xshift, yshift; save=true, convergencePlot=false)
 		#generates an input/output pair of images with a circle with the given position shift
 
 		avu=1; prevavu=1;
@@ -272,7 +272,7 @@ end
 # ╔═╡ 7d19c015-a945-4d93-9c82-5c5c7e06569b
 @time for i in -1:1
 	for j in -1:1
-		get_images(i, j, save=false)
+		get_images(i, j, false)
 	end
 end
 
