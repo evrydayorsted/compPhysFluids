@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.40
+# v0.20.6
 
 using Markdown
 using InteractiveUtils
@@ -226,30 +226,85 @@ begin
 		    ts = ts+1;
 		end
 		if save==true
-			figure();
-			imshow(1 .-BOUND', cmap="hot", interpolation="None", vmin=0., vmax=1., origin="lower");
-			title(string("Circle of radius ", string(radius), " at (", string(round(nx/2 + xshift)), ",", string(round(ny/2 + yshift)), ")"));
-			xlabel("x");
-			ylabel("y");
-			# mkpath("/Users/charlie/Documents/InputImages/")
-			# savefig(string("/Users/charlie/Documents/InputImages/input", string(xshift), ".", string(yshift), ".jpg"), dpi=1200)
-			mkpath("/Users/evrydayorsted/Documents/harddrive/classes/compPhys/fluids/InputImages/")
-			savefig(string("/Users/evrydayorsted/Documents/harddrive/classes/compPhys/fluids/InputImages/input", string(xshift), ".", string(yshift), ".jpg"), dpi=1200)
-	
-			figure();
-			imshow(1 .-BOUND', cmap="hot", interpolation="None", vmin=0., vmax=1., origin="lower");
-			imshow(DENSITY[:,:]', cmap = "bwr",vmin=mean(DENSITY[OFF])- 3std(DENSITY[OFF]))
-	
-			quiver(1:nx-1, 0:ny-1, UX[2:nx,:]', UY[2:nx,:]');
-			title(string("Flow field after \$ ", string(ts), " \\delta t\$"));
-			xlabel("x");
-			ylabel("y");
-			ylim(0,ny);
-			# mkpath("/Users/charlie/Documents/OutputImages")
-			# savefig(string("/Users/charlie/Documents/OutputImages/output", string(xshift), ".", string(yshift), ".jpg"), dpi=1200)
-			mkpath("/Users/evrydayorsted/Documents/harddrive/classes/compPhys/fluids/OutputImages/")
-			savefig(string("/Users/evrydayorsted/Documents/harddrive/classes/compPhys/fluids/OutputImages/output", string(xshift), ".", string(yshift), ".jpg"), dpi=1200)
-			close("all")
+		
+		# Flip BOUND as imshow in PyPlot uses origin="lower"
+		data = 1 .- BOUND'
+		nx_center = round(Int, nx / 2 + xshift)
+		ny_center = round(Int, ny / 2 + yshift)
+		
+		# Plot heatmap
+		heatmap(
+		    data,
+		    c=:hot,
+		    clims=(0.0, 1.0),
+		    aspect_ratio=:equal,
+		    xlabel="x",
+		    ylabel="y",
+		    title="Circle of radius $radius at ($nx_center, $ny_center)",
+		    framestyle=:box
+		)
+		
+		# Create folder and save image
+		savepath = "/Users/charlie/Documents/InputImages/"
+		mkpath(savepath)
+		filename = string(savepath, "input", xshift, ".", yshift, ".png")
+		savefig(filename)
+
+		# Correct 2D array transposition using permutedims
+		base_img = 1 .- BOUND'
+		density_img = DENSITY[:,:]'
+		density_min = mean(DENSITY[OFF]) - 3std(DENSITY[OFF])
+		
+		# Plot base image (hot background)
+		heatmap(
+		    base_img,
+		    color=:hot,
+		    clims=(0.0, 1.0),
+		    aspect_ratio=:equal,
+		    xlabel="x",
+		    ylabel="y",
+		    framestyle=:box,
+		    legend=false
+		)
+		
+		# Overlay density (transparent bwr layer)
+		heatmap!(
+		    density_img,
+		    color=:bwr,
+		    clims=(density_min, maximum(DENSITY)),
+		    alpha=0.6,
+		    legend=true
+		)
+		
+		# Transpose velocity fields for quiver plot
+		UXp = UX[:, :]'
+		UYp = UY[:, :]'
+		
+		X = repeat(collect(1:nx)', ny, 1)
+		Y = repeat(collect(1:ny), 1, nx)
+
+		quiver!(
+		    vec(X),
+		    vec(Y),
+		    quiver=(vec(UXp), vec(UYp)),
+		    color=:black,
+		    lw=0.5,
+		    legend=false
+		)
+		
+		# Title with math formatting
+		title!("Flow field after \$ $ts \\delta t\$")
+		
+		# Set y-limits
+		ylims!(0, ny)
+		xlims!(0, nx)
+		
+		# Save to file
+		savepath = "/Users/charlie/Documents/OutputImages/"
+		mkpath(savepath)
+		filename = string(savepath, "output", xshift, ".", yshift, ".png")
+		savefig(filename)
+
 		end
 		if convergencePlot==true
 			figure();
