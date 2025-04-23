@@ -263,25 +263,25 @@ begin
 end
 
 # ╔═╡ f24b51d8-fc98-4f60-8223-0f5c0dc87d19
-@time for i in -1:1
-	for j in -1:1
-		get_images(i, j)
-	end
-end
-
-# ╔═╡ 7d19c015-a945-4d93-9c82-5c5c7e06569b
-@time for i in -1:1
-	for j in -1:1
-		get_images(i, j, false)
-	end
-end
-
-# ╔═╡ 06c7970f-a49f-4ec9-8bf2-44112b5bc860
-# @time for i in -1:1
-# 	@threads for j in -1:1
+# @btime for i in -1:1
+# 	for j in -1:1
 # 		get_images(i, j)
 # 	end
 # end
+
+# ╔═╡ 7d19c015-a945-4d93-9c82-5c5c7e06569b
+# @btime for i in -1:1
+# 	for j in -1:1
+# 		get_images(i, j, save=false)
+# 	end
+# end
+
+# ╔═╡ 06c7970f-a49f-4ec9-8bf2-44112b5bc860
+@time @threads for i in -1:1
+		# for j in -1:1
+		get_images(i, 0)
+	
+end
 
 # ╔═╡ eb2a643b-3ada-463b-9f4b-54db56e2bddb
 
