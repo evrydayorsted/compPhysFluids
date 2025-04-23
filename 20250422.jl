@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.20.4
+# v0.19.40
 
 using Markdown
 using InteractiveUtils
@@ -118,12 +118,12 @@ begin
 	deltaU=1e-7;
 
 
-	function get_images(xshift, yshift)
+	function get_images(xshift, yshift, save=true)
 		#generates an input/output pair of images with a circle with the given position shift
 
 		avu=1; prevavu=1;
 		ts=0;
-		avus = zeros(Float64, 100000)
+		global avus = zeros(Float64, 100000)
 		
 		# single-particle distribution function
 		# particle densities conditioned on one of the 9 possible velocities
@@ -221,39 +221,55 @@ begin
 		    F[REFLECTED] = BOUNCEDBACK;
 		    prevavu = avu;
 		    avu = sum(sum(UX))/numactivenodes;
-		    avus[ts+1] = avu;
+		    avus[ts+1] = prevavu-avu;
 		    ts = ts+1;
 		end
-		
+		print(avus)
 		figure();
 		imshow(1 .-BOUND', cmap="hot", interpolation="None", vmin=0., vmax=1., origin="lower");
 		title(string("Circle of radius ", string(radius), " at (", string(round(nx/2 + xshift)), ",", string(round(ny/2 + yshift)), ")"));
 		xlabel("x");
 		ylabel("y");
-		mkpath("/Users/charlie/Documents/InputImages/")
-		savefig(string("/Users/charlie/Documents/InputImages/input", string(xshift), ".", string(yshift), ".jpg"))
+		# mkpath("/Users/charlie/Documents/InputImages/")
+		# savefig(string("/Users/charlie/Documents/InputImages/input", string(xshift), ".", string(yshift), ".jpg"), dpi=1200)
+		mkpath("/Users/evrydayorsted/Documents/harddrive/classes/compPhys/fluids/InputImages/")
+		savefig(string("/Users/evrydayorsted/Documents/harddrive/classes/compPhys/fluids/InputImages/input", string(xshift), ".", string(yshift), ".jpg"), dpi=1200)
 
 		figure();
 		imshow(1 .-BOUND', cmap="hot", interpolation="None", vmin=0., vmax=1., origin="lower");
 		imshow(DENSITY[:,:]', cmap = "bwr",vmin=mean(DENSITY[OFF])- 3std(DENSITY[OFF]))
-	
+
 		quiver(1:nx-1, 0:ny-1, UX[2:nx,:]', UY[2:nx,:]');
 		title(string("Flow field after \$ ", string(ts), " \\delta t\$"));
 		xlabel("x");
 		ylabel("y");
 		ylim(0,ny);
-		mkpath("/Users/charlie/Documents/OutputImages")
-		savefig(string("/Users/charlie/Documents/OutputImages/output", string(xshift), ".", string(yshift), ".jpg"))
+		# mkpath("/Users/charlie/Documents/OutputImages")
+		# savefig(string("/Users/charlie/Documents/OutputImages/output", string(xshift), ".", string(yshift), ".jpg"), dpi=1200)
+		mkpath("/Users/evrydayorsted/Documents/harddrive/classes/compPhys/fluids/OutputImages/")
+		savefig(string("/Users/evrydayorsted/Documents/harddrive/classes/compPhys/fluids/OutputImages/output", string(xshift), ".", string(yshift), ".jpg"), dpi=1200)
 		close("all")
+		figure();
+		plot(avus[2:length(avus)]);
+		title("avus convergence");
+		xlabel("x");
+		ylabel("y");
+		show()
 		end
 end
 
 # ╔═╡ f24b51d8-fc98-4f60-8223-0f5c0dc87d19
-for i in -5:5
-	for j in -2:2
-		get_images(i, j)
-	end
-end
+# for i in -1:1
+# 	for j in -1:1
+# 		get_images(i, j)
+# 	end
+# end
+
+# ╔═╡ eb2a643b-3ada-463b-9f4b-54db56e2bddb
+get_images(0,0)
+
+# ╔═╡ 0e2d2b2d-5f74-437a-aedf-ee9eb3d9b579
+
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -265,34 +281,31 @@ Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [compat]
 PyPlot = "~2.11.6"
-Statistics = "~1.11.1"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.11.3"
+julia_version = "1.10.0"
 manifest_format = "2.0"
-project_hash = "298beb9d2dab87b289eec8ab62394fbd25482d21"
+project_hash = "4bb2dc17a2b134a96b8b03161d77a0d2cd76ca12"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
-version = "1.1.2"
+version = "1.1.1"
 
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
-version = "1.11.0"
 
 [[deps.Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
-version = "1.11.0"
 
 [[deps.ColorTypes]]
 deps = ["FixedPointNumbers", "Random"]
-git-tree-sha1 = "67e11ee83a43eb71ddc950302c53bf33f0690dfe"
+git-tree-sha1 = "c7acce7a7e1078a20a285211dd73cd3941a871d6"
 uuid = "3da002f7-5984-5a60-b8a6-cbb66c0b333f"
-version = "0.12.1"
+version = "0.12.0"
 
     [deps.ColorTypes.extensions]
     StyledStringsExt = "StyledStrings"
@@ -309,7 +322,7 @@ version = "0.13.0"
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
-version = "1.1.1+0"
+version = "1.0.5+1"
 
 [[deps.Conda]]
 deps = ["Downloads", "JSON", "VersionParsing"]
@@ -320,7 +333,6 @@ version = "1.10.2"
 [[deps.Dates]]
 deps = ["Printf"]
 uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
-version = "1.11.0"
 
 [[deps.Downloads]]
 deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
@@ -329,7 +341,6 @@ version = "1.6.0"
 
 [[deps.FileWatching]]
 uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
-version = "1.11.0"
 
 [[deps.FixedPointNumbers]]
 deps = ["Statistics"]
@@ -340,7 +351,6 @@ version = "0.8.5"
 [[deps.InteractiveUtils]]
 deps = ["Markdown"]
 uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
-version = "1.11.0"
 
 [[deps.JSON]]
 deps = ["Dates", "Mmap", "Parsers", "Unicode"]
@@ -361,7 +371,7 @@ version = "0.6.4"
 [[deps.LibCURL_jll]]
 deps = ["Artifacts", "LibSSH2_jll", "Libdl", "MbedTLS_jll", "Zlib_jll", "nghttp2_jll"]
 uuid = "deac9b47-8bc7-5906-a0fe-35ac56dc84c0"
-version = "8.6.0+0"
+version = "8.4.0+0"
 
 [[deps.LibSSH2_jll]]
 deps = ["Artifacts", "Libdl", "MbedTLS_jll"]
@@ -370,16 +380,13 @@ version = "1.11.0+1"
 
 [[deps.Libdl]]
 uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
-version = "1.11.0"
 
 [[deps.LinearAlgebra]]
 deps = ["Libdl", "OpenBLAS_jll", "libblastrampoline_jll"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
-version = "1.11.0"
 
 [[deps.Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
-version = "1.11.0"
 
 [[deps.MacroTools]]
 git-tree-sha1 = "72aebe0b5051e5143a079a4685a46da330a40472"
@@ -389,20 +396,18 @@ version = "0.5.15"
 [[deps.Markdown]]
 deps = ["Base64"]
 uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
-version = "1.11.0"
 
 [[deps.MbedTLS_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "c8ffd9c3-330d-5841-b78e-0817d7145fa1"
-version = "2.28.6+0"
+version = "2.28.2+1"
 
 [[deps.Mmap]]
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"
-version = "1.11.0"
 
 [[deps.MozillaCACerts_jll]]
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
-version = "2023.12.12"
+version = "2023.1.10"
 
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
@@ -411,7 +416,7 @@ version = "1.2.0"
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
 uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
-version = "0.3.27+1"
+version = "0.3.23+2"
 
 [[deps.Parsers]]
 deps = ["Dates", "PrecompileTools", "UUIDs"]
@@ -434,7 +439,6 @@ version = "1.4.3"
 [[deps.Printf]]
 deps = ["Unicode"]
 uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
-version = "1.11.0"
 
 [[deps.PyCall]]
 deps = ["Conda", "Dates", "Libdl", "LinearAlgebra", "MacroTools", "Serialization", "VersionParsing"]
@@ -451,7 +455,6 @@ version = "2.11.6"
 [[deps.Random]]
 deps = ["SHA"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
-version = "1.11.0"
 
 [[deps.Reexport]]
 git-tree-sha1 = "45e428421666073eab6f2da5c9d310d99bb12f9b"
@@ -464,23 +467,24 @@ version = "0.7.0"
 
 [[deps.Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
-version = "1.11.0"
 
 [[deps.Sockets]]
 uuid = "6462fe0b-24de-5631-8697-dd941f90decc"
-version = "1.11.0"
+
+[[deps.SparseArrays]]
+deps = ["Libdl", "LinearAlgebra", "Random", "Serialization", "SuiteSparse_jll"]
+uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+version = "1.10.0"
 
 [[deps.Statistics]]
-deps = ["LinearAlgebra"]
-git-tree-sha1 = "ae3bb1eb3bba077cd276bc5cfc337cc65c3075c0"
+deps = ["LinearAlgebra", "SparseArrays"]
 uuid = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
-version = "1.11.1"
+version = "1.10.0"
 
-    [deps.Statistics.extensions]
-    SparseArraysExt = ["SparseArrays"]
-
-    [deps.Statistics.weakdeps]
-    SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+[[deps.SuiteSparse_jll]]
+deps = ["Artifacts", "Libdl", "libblastrampoline_jll"]
+uuid = "bea87d4a-7f5b-5778-9afe-8cc45184846c"
+version = "7.2.1+1"
 
 [[deps.TOML]]
 deps = ["Dates"]
@@ -490,16 +494,13 @@ version = "1.0.3"
 [[deps.Test]]
 deps = ["InteractiveUtils", "Logging", "Random", "Serialization"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
-version = "1.11.0"
 
 [[deps.UUIDs]]
 deps = ["Random", "SHA"]
 uuid = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
-version = "1.11.0"
 
 [[deps.Unicode]]
 uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
-version = "1.11.0"
 
 [[deps.VersionParsing]]
 git-tree-sha1 = "58d6e80b4ee071f5efd07fda82cb9fbe17200868"
@@ -514,12 +515,12 @@ version = "1.2.13+1"
 [[deps.libblastrampoline_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
-version = "5.11.0+0"
+version = "5.8.0+1"
 
 [[deps.nghttp2_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850ede-7688-5339-a07c-302acd2aaf8d"
-version = "1.59.0+0"
+version = "1.52.0+1"
 """
 
 # ╔═╡ Cell order:
@@ -530,5 +531,7 @@ version = "1.59.0+0"
 # ╠═e082309c-e705-4c22-8e27-482930120c5f
 # ╠═8c063ce1-3095-450f-946f-1c8dfe87c6f2
 # ╠═f24b51d8-fc98-4f60-8223-0f5c0dc87d19
+# ╠═eb2a643b-3ada-463b-9f4b-54db56e2bddb
+# ╠═0e2d2b2d-5f74-437a-aedf-ee9eb3d9b579
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
