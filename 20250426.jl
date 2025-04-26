@@ -228,7 +228,11 @@ begin
 		t2 = 1/9;
 		t3 = 1/36;
 		c_squ = 1/3;
-		 
+
+		#initialize arrays
+		DENSITY = zeros(Int, nx, ny)
+		UX = zeros(Int, nx, ny)
+		UY = zeros(Int, nx, ny)
 		
 		#code that makes the blockage
 		BOUND, ON, OFF, numactivenodes = circle_setboundary(nx, ny, 5, xshift, yshift)
@@ -270,13 +274,13 @@ begin
 		    # particles at [2,1] were at [1, 2] before: 8 points down (1,-1)
 		    F[:,:,8] = F[cat([nx], collect(1:nx-1), dims=1),cat(collect(2:ny), [1], dims=1),8];
 		    
-		    global DENSITY = sum(F,dims=3);
+		    DENSITY = sum(F,dims=3);
 		    # 1,2,8 are moving to the right, 4,5,6 to the left
 		    # 3, 7 and 9 don't move in the x direction
-		    global UX = (sum(F[:,:,[1, 2, 8]],dims=3)-sum(F[:,:,[4, 5, 6]],dims=3))./DENSITY;
+		    UX = (sum(F[:,:,[1, 2, 8]],dims=3)-sum(F[:,:,[4, 5, 6]],dims=3))./DENSITY;
 		    # 2,3,4 are moving up, 6,7,8 down
 		    # 1, 5 and 9 don't move in the y direction
-		    global UY = (sum(F[:,:,[2, 3, 4]],dims=3)-sum(F[:,:,[6, 7, 8]],dims=3))./DENSITY;
+		    UY = (sum(F[:,:,[2, 3, 4]],dims=3)-sum(F[:,:,[6, 7, 8]],dims=3))./DENSITY;
 		    
 		    UX[1,1:ny] = UX[1,1:ny] .+ deltaU; #Increase inlet pressure
 		    
@@ -324,13 +328,14 @@ end
 
 # ╔═╡ 4f2edbbc-fa4b-4b0e-926d-31a5470266e2
 begin
-	outputs = []
-	@threads for i in 1:4 #if you take out @threads it works :)
-		push!(outputs, get_images(i, 0, save=false))
+	outputs = Vector{Any}(undef, 4)  # preallocate output array
+
+	Threads.@threads for i in 1:4
+		outputs[i] = get_images(i, 0, save=false)
 	end
 end
 
-# ╔═╡ ed3fbb2b-14dc-4ad3-a301-4124da5f9d51
+# ╔═╡ c04b8b5b-9696-4d5b-8134-ab9fa1bc1150
 for i in 1:4
 	plot_everything(outputs[i]...)
 end
@@ -1449,6 +1454,6 @@ version = "1.4.1+2"
 # ╠═8c063ce1-3095-450f-946f-1c8dfe87c6f2
 # ╠═40adc09c-e23a-4362-b4b8-764cd0834748
 # ╠═4f2edbbc-fa4b-4b0e-926d-31a5470266e2
-# ╠═ed3fbb2b-14dc-4ad3-a301-4124da5f9d51
+# ╠═c04b8b5b-9696-4d5b-8134-ab9fa1bc1150
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
