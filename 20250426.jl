@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.40
+# v0.20.6
 
 using Markdown
 using InteractiveUtils
@@ -49,89 +49,174 @@ function circle_setboundary(nx, ny, radius, xshift, yshift)
 	end
 
 # ╔═╡ e082309c-e705-4c22-8e27-482930120c5f
-#shamelessly used chatgpt for this
-function random_boundary(nx, ny, num_vertices)
-    # Generate a random set of vertices within the grid
-    vertices = [(rand(1:nx), rand(1:ny)) for _ in 1:num_vertices]
+# ╠═╡ skip_as_script = true
+#=╠═╡
+# #shamelessly used chatgpt for this
+# function random_boundary(nx, ny, num_vertices)
+#     # Generate a random set of vertices within the grid
+#     vertices = [(rand(1:nx), rand(1:ny)) for _ in 1:num_vertices]
     
-    # Sort vertices in a counter-clockwise order to form a polygon
-    function angle_from_center(vertex)
-        cx, cy = nx/2, ny/2
-        return atan(vertex[2] - cy, vertex[1] - cx)
-    end
+#     # Sort vertices in a counter-clockwise order to form a polygon
+#     function angle_from_center(vertex)
+#         cx, cy = nx/2, ny/2
+#         return atan(vertex[2] - cy, vertex[1] - cx)
+#     end
 	
-    sorted_vertices = sort(vertices, by=angle_from_center)
+#     sorted_vertices = sort(vertices, by=angle_from_center)
     
-    # Create the polygon boundary (this uses the ray-casting algorithm to check if a point is inside)
-    BOUND = zeros(Int, nx, ny)
+#     # Create the polygon boundary (this uses the ray-casting algorithm to check if a point is inside)
+#     BOUND = zeros(Int, nx, ny)
     
-    # A helper function to check if a point is inside the polygon
-    function point_in_polygon(x, y, vertices)
-        inside = false
-        n = length(vertices)
-        p1x, p1y = vertices[1]
-        for i in 1:n+1
-            p2x, p2y = vertices[mod(i, n)+1]
-            if y > min(p1y, p2y)
-                if y <= max(p1y, p2y)
-                    if x <= max(p1x, p2x)
-                        if p1y != p2y
-                            xinters = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
-                        end
-                        if p1x == p2x || x <= xinters
-                            inside = !inside
-                        end
-                    end
-                end
-            end
-            p1x, p1y = p2x, p2y
-        end
-        return inside
-    end
+#     # A helper function to check if a point is inside the polygon
+#     function point_in_polygon(x, y, vertices)
+#         inside = false
+#         n = length(vertices)
+#         p1x, p1y = vertices[1]
+#         for i in 1:n+1
+#             p2x, p2y = vertices[mod(i, n)+1]
+#             if y > min(p1y, p2y)
+#                 if y <= max(p1y, p2y)
+#                     if x <= max(p1x, p2x)
+#                         if p1y != p2y
+#                             xinters = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+#                         end
+#                         if p1x == p2x || x <= xinters
+#                             inside = !inside
+#                         end
+#                     end
+#                 end
+#             end
+#             p1x, p1y = p2x, p2y
+#         end
+#         return inside
+#     end
     
-    # Fill the BOUND array based on whether each point is inside the polygon
-    for i in 1:nx
-        for j in 1:ny
-            if point_in_polygon(i, j, sorted_vertices)
-                BOUND[i, j] = 1
-            end
-        end
-    end
+#     # Fill the BOUND array based on whether each point is inside the polygon
+#     for i in 1:nx
+#         for j in 1:ny
+#             if point_in_polygon(i, j, sorted_vertices)
+#                 BOUND[i, j] = 1
+#             end
+#         end
+#     end
     
-    # Get the indices of the occupied nodes (ON)
-    ON = findall(x -> x > 0, vec(BOUND))
-    OFF = findall(x-> x<1, vec(BOUND));
+#     # Get the indices of the occupied nodes (ON)
+#     ON = findall(x -> x > 0, vec(BOUND))
+#     OFF = findall(x-> x<1, vec(BOUND));
 
-    # Count the number of active nodes
-    numactivenodes = sum(BOUND)
+#     # Count the number of active nodes
+#     numactivenodes = sum(BOUND)
     
-    return BOUND, ON, OFF, numactivenodes
-end
+#     return BOUND, ON, OFF, numactivenodes
+# end
 
+  ╠═╡ =#
 
-# ╔═╡ 8c063ce1-3095-450f-946f-1c8dfe87c6f2
-begin
-	#define constants
+# ╔═╡ 16f3b923-2db3-4ffc-923f-d90a51dd3b08
+begin	#define constants
 	omega = 1.0;
-	density = 1.0;
+	fluid_density = 1.0;
 	radius = 5.
 	
 	nx = 64;
 	ny = 32;	
 
 	deltaU=1e-7;
+end
 
+# ╔═╡ 40adc09c-e23a-4362-b4b8-764cd0834748
+function plot_everything(pltUX, pltUY, pltDENSITY, pltOFF, pltBOUND, pltxshift, pltyshift, pltradius)
+	# Flip BOUND as imshow in PyPlot uses origin="lower"
+		data = 1 .- pltBOUND'
+		nx_center = round(Int, nx / 2 + pltxshift)
+		ny_center = round(Int, ny / 2 + pltyshift)
+		
+		# Plot heatmap
+		a = heatmap(
+		    data,
+		    c=:hot,
+		    clims=(0.0, 1.0),
+		    aspect_ratio=:equal,
+		    xlabel="x",
+		    ylabel="y",
+		    title="Circle of radius $pltradius at ($nx_center, $ny_center)",
+		    framestyle=:box
+		)
+		
+		# Create folder and save image
+		savepath = "/Users/Charlie/Documents/InputImages/"
+		mkpath(savepath)
+		filename = string(savepath, "input", pltxshift, ".", pltyshift, ".png")
+		savefig(a, filename)
 
+		# Correct 2D array transposition using permutedims
+		base_img = 1 .- pltBOUND'
+		density_img = pltDENSITY[:,:]'
+		density_min = mean(pltDENSITY[pltOFF]) - 3std(pltDENSITY[pltOFF])
+		
+		# Plot base image (hot background)
+		b= heatmap(
+		    base_img,
+		    color=:hot,
+		    clims=(0.0, 1.0),
+		    aspect_ratio=:equal,
+		    xlabel="x",
+		    ylabel="y",
+		    framestyle=:box,
+		    legend=false
+		)
+		
+		# Overlay density (transparent bwr layer)
+		heatmap!(
+		    density_img,
+		    color=:bwr,
+		    clims=(density_min, maximum(pltDENSITY)),
+		    alpha=0.6,
+		    legend=true
+		)
+		
+		# Transpose velocity fields for quiver plot
+		UXp = pltUX[:, :]'
+		UYp = pltUY[:, :]'
+		
+		X = repeat(collect(1:nx)', ny, 1)
+		Y = repeat(collect(1:ny), 1, nx)
+
+		quiver!(
+		    vec(X),
+		    vec(Y),
+		    quiver=(vec(UXp), vec(UYp)),
+		    color=:black,
+		    lw=0.5,
+		    legend=false
+		)
+	
+		# Title with math formatting
+		title!("Converged Flow Field")
+		
+		# Set y-limits
+		ylims!(0, ny)
+		xlims!(0, nx)
+		
+		# Save to file
+		savepath = "/Users/Charlie/Documents/OutputImages/"
+		mkpath(savepath)
+		filename = string(savepath, "output", pltxshift, ".", pltyshift, ".png")
+		savefig(b, filename)
+end
+
+# ╔═╡ 8c063ce1-3095-450f-946f-1c8dfe87c6f2
+begin
 	function get_images(xshift, yshift; save=true, convergencePlot=false)
 		#generates an input/output pair of images with a circle with the given position shift
 
 		avu=1; prevavu=1;
 		ts=0;
-		global avus = zeros(Float64, 100000)
+		avus = zeros(Float64, 100000)
 		
 		# single-particle distribution function
 		# particle densities conditioned on one of the 9 possible velocities
-		F = repeat([density/9], outer= [nx, ny, 9]);
+		F = repeat([fluid_density/9], outer= [nx, ny, 9]);
 		FEQ = F;
 		msize = nx*ny;
 		CI = collect(0:msize:msize*7); # offsets of different directions e_a in the F matrix 
@@ -228,131 +313,26 @@ begin
 		    avus[ts+1] = prevavu-avu;
 		    ts = ts+1;
 		end
+		
 		if save==true
-		
-		# Flip BOUND as imshow in PyPlot uses origin="lower"
-		data = 1 .- BOUND'
-		nx_center = round(Int, nx / 2 + xshift)
-		ny_center = round(Int, ny / 2 + yshift)
-		
-		# Plot heatmap
-		a = heatmap(
-		    data,
-		    c=:hot,
-		    clims=(0.0, 1.0),
-		    aspect_ratio=:equal,
-		    xlabel="x",
-		    ylabel="y",
-		    title="Circle of radius $radius at ($nx_center, $ny_center)",
-		    framestyle=:box
-		)
-		
-		# Create folder and save image
-		savepath = "/Users/evrydayorsted/Documents/InputImages/"
-		mkpath(savepath)
-		filename = string(savepath, "input", xshift, ".", yshift, ".png")
-		savefig(a, filename)
-
-		# Correct 2D array transposition using permutedims
-		base_img = 1 .- BOUND'
-		density_img = DENSITY[:,:]'
-		density_min = mean(DENSITY[OFF]) - 3std(DENSITY[OFF])
-		
-		# Plot base image (hot background)
-		b= heatmap(
-		    base_img,
-		    color=:hot,
-		    clims=(0.0, 1.0),
-		    aspect_ratio=:equal,
-		    xlabel="x",
-		    ylabel="y",
-		    framestyle=:box,
-		    legend=false
-		)
-		
-		# Overlay density (transparent bwr layer)
-		heatmap!(
-		    density_img,
-		    color=:bwr,
-		    clims=(density_min, maximum(DENSITY)),
-		    alpha=0.6,
-		    legend=true
-		)
-		
-		# Transpose velocity fields for quiver plot
-		UXp = UX[:, :]'
-		UYp = UY[:, :]'
-		
-		X = repeat(collect(1:nx)', ny, 1)
-		Y = repeat(collect(1:ny), 1, nx)
-
-		quiver!(
-		    vec(X),
-		    vec(Y),
-		    quiver=(vec(UXp), vec(UYp)),
-		    color=:black,
-		    lw=0.5,
-		    legend=false
-		)
-		
-		# Title with math formatting
-		title!("Flow field after \$ $ts \\delta t\$")
-		
-		# Set y-limits
-		ylims!(0, ny)
-		xlims!(0, nx)
-		
-		# Save to file
-		savepath = "/Users/evrydayorsted/Documents/OutputImages/"
-		mkpath(savepath)
-		filename = string(savepath, "output", xshift, ".", yshift, ".png")
-		savefig(b, filename)
-
+			plot_everything(UX, UY, DENSITY, OFF, BOUND, xshift, yshift, radius)
 		end
-		if convergencePlot==true
-			figure();
-			plot(avus[2:length(avus)]);
-			title("avus convergence");
-			xlabel("x");
-			ylabel("y");
-			show()
-		end
-		end
+		
+		return [UX, UY, DENSITY, OFF, BOUND, xshift, yshift, radius]
+	end
 end
 
-# ╔═╡ f24b51d8-fc98-4f60-8223-0f5c0dc87d19
-# @btime for i in -1:1
-# 	for j in -1:1
-# 		get_images(i, j)
-# 	end
-# end
+# ╔═╡ 4f2edbbc-fa4b-4b0e-926d-31a5470266e2
+begin
+	outputs = []
+	@threads for i in 1:4 #if you take out @threads it works :)
+		push!(outputs, get_images(i, 0, save=false))
+	end
+end
 
-# ╔═╡ 7d19c015-a945-4d93-9c82-5c5c7e06569b
-# @btime for i in -1:1
-# 	for j in -1:1
-# 		get_images(i, j, save=false)
-# 	end
-# end
-
-# ╔═╡ 06c7970f-a49f-4ec9-8bf2-44112b5bc860
-# @time @threads for i in -1:1
-# 		# for j in -1:1
-# 		get_images(i, 0)
-	
-# end
-
-# ╔═╡ eb2a643b-3ada-463b-9f4b-54db56e2bddb
-# begin
-# 	@time @threads for i=1:4
-# 	    println(i, " on thread ", Threads.threadid())
-# 		get_images(i,0, save=true);
-# 	end
-# 	println("done");
-# end
-
-# ╔═╡ 0e2d2b2d-5f74-437a-aedf-ee9eb3d9b579
-@time for i=1:12
-	get_images(i,0,save=true)
+# ╔═╡ ed3fbb2b-14dc-4ad3-a301-4124da5f9d51
+for i in 1:4
+	plot_everything(outputs[i]...)
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -374,7 +354,7 @@ Plots = "~1.40.12"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.10.0"
+julia_version = "1.10.9"
 manifest_format = "2.0"
 project_hash = "a9dfaa7ff24e8013be7d8a026f92f79f952ee25a"
 
@@ -466,7 +446,7 @@ weakdeps = ["Dates", "LinearAlgebra"]
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
-version = "1.0.5+1"
+version = "1.1.1+0"
 
 [[deps.ConcurrentUtilities]]
 deps = ["Serialization", "Sockets"]
@@ -868,12 +848,12 @@ version = "1.3.5+1"
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
 uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
-version = "0.3.23+2"
+version = "0.3.23+4"
 
 [[deps.OpenLibm_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "05823500-19ac-5b8b-9628-191a04bc5112"
-version = "0.8.1+2"
+version = "0.8.1+4"
 
 [[deps.OpenSSL]]
 deps = ["BitFlags", "Dates", "MozillaCACerts_jll", "OpenSSL_jll", "Sockets"]
@@ -1386,7 +1366,7 @@ version = "0.15.2+0"
 [[deps.libblastrampoline_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
-version = "5.8.0+1"
+version = "5.11.0+0"
 
 [[deps.libdecor_jll]]
 deps = ["Artifacts", "Dbus_jll", "JLLWrappers", "Libdl", "Libglvnd_jll", "Pango_jll", "Wayland_jll", "xkbcommon_jll"]
@@ -1464,12 +1444,11 @@ version = "1.4.1+2"
 # ╟─dfd8a12b-3517-4747-a052-09399fe245d7
 # ╟─7629d59a-c892-4c38-8c6a-5164b313c451
 # ╠═2172e7f7-3f09-4ed0-885b-48f4812dc7f9
-# ╠═e082309c-e705-4c22-8e27-482930120c5f
+# ╟─e082309c-e705-4c22-8e27-482930120c5f
+# ╠═16f3b923-2db3-4ffc-923f-d90a51dd3b08
 # ╠═8c063ce1-3095-450f-946f-1c8dfe87c6f2
-# ╠═f24b51d8-fc98-4f60-8223-0f5c0dc87d19
-# ╠═7d19c015-a945-4d93-9c82-5c5c7e06569b
-# ╠═06c7970f-a49f-4ec9-8bf2-44112b5bc860
-# ╠═eb2a643b-3ada-463b-9f4b-54db56e2bddb
-# ╠═0e2d2b2d-5f74-437a-aedf-ee9eb3d9b579
+# ╠═40adc09c-e23a-4362-b4b8-764cd0834748
+# ╠═4f2edbbc-fa4b-4b0e-926d-31a5470266e2
+# ╠═ed3fbb2b-14dc-4ad3-a301-4124da5f9d51
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
