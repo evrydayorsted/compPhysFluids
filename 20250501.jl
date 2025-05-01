@@ -14,6 +14,8 @@ begin
 	using Plots
 	using FileIO
 	using Printf
+	using GeometryBasics
+	using JLD2
 end
 
 # ╔═╡ dfd8a12b-3517-4747-a052-09399fe245d7
@@ -51,72 +53,63 @@ function circle_setboundary(nx, ny, radius, xshift, yshift)
 # ╔═╡ e082309c-e705-4c22-8e27-482930120c5f
 # ╠═╡ skip_as_script = true
 #=╠═╡
-# #shamelessly used chatgpt for this
-# function random_boundary(nx, ny, num_vertices)
-#     # Generate a random set of vertices within the grid
-#     vertices = [(rand(1:nx), rand(1:ny)) for _ in 1:num_vertices]
-    
-#     # Sort vertices in a counter-clockwise order to form a polygon
-#     function angle_from_center(vertex)
-#         cx, cy = nx/2, ny/2
-#         return atan(vertex[2] - cy, vertex[1] - cx)
-#     end
-	
-#     sorted_vertices = sort(vertices, by=angle_from_center)
-    
-#     # Create the polygon boundary (this uses the ray-casting algorithm to check if a point is inside)
-#     BOUND = zeros(Int, nx, ny)
-    
-#     # A helper function to check if a point is inside the polygon
-#     function point_in_polygon(x, y, vertices)
-#         inside = false
-#         n = length(vertices)
-#         p1x, p1y = vertices[1]
-#         for i in 1:n+1
-#             p2x, p2y = vertices[mod(i, n)+1]
-#             if y > min(p1y, p2y)
-#                 if y <= max(p1y, p2y)
-#                     if x <= max(p1x, p2x)
-#                         if p1y != p2y
-#                             xinters = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
-#                         end
-#                         if p1x == p2x || x <= xinters
-#                             inside = !inside
-#                         end
-#                     end
-#                 end
-#             end
-#             p1x, p1y = p2x, p2y
-#         end
-#         return inside
-#     end
-    
-#     # Fill the BOUND array based on whether each point is inside the polygon
-#     for i in 1:nx
-#         for j in 1:ny
-#             if point_in_polygon(i, j, sorted_vertices)
-#                 BOUND[i, j] = 1
-#             end
-#         end
-#     end
-    
-#     # Get the indices of the occupied nodes (ON)
-#     ON = findall(x -> x > 0, vec(BOUND))
-#     OFF = findall(x-> x<1, vec(BOUND));
+"""
+    polygon_setboundary(nx, ny, n, xshift, yshift)
 
-#     # Count the number of active nodes
-#     numactivenodes = sum(BOUND)
-    
-#     return BOUND, ON, OFF, numactivenodes
-# end
+Generates a random convex n-gon within a `nx` by `ny` grid, centered around
+`(nx/2 + xshift, ny/2 + yshift)`.
 
+Returns:
+- BOUND: a binary matrix with 1s inside the polygon and 0s outside
+- ON: linear indices of points inside the polygon
+- OFF: linear indices of points outside the polygon
+- numactivenodes: number of OFF nodes
+"""
+function polygon_setboundary(nx, ny, n, xshift, yshift, radius)
+    # Polygon center
+    cx, cy = nx / 2 + xshift, ny / 2 + yshift
+
+    # Generate sorted random angles and create convex polygon
+    angles = sort(rand(n) .* 2π)
+    points = [(cx + radius * cos(θ), cy + radius * sin(θ)) for θ in angles]
+
+    # Define 2D cross product (scalar)
+    cross2D(u::Tuple{<:Real,<:Real}, v::Tuple{<:Real,<:Real}) = u[1]*v[2] - u[2]*v[1]
+
+    # Winding number point-in-polygon test
+    function point_in_polygon(x, y, poly)
+        wn = 0
+        for i in 1:length(poly)
+            x0, y0 = poly[i]
+            x1, y1 = poly[mod1(i+1, length(poly))]
+            if y0 <= y
+                if y1 > y && cross2D((x1 - x0, y1 - y0), (x - x0, y - y0)) > 0
+                    wn += 1
+                end
+            else
+                if y1 <= y && cross2D((x1 - x0, y1 - y0), (x - x0, y - y0)) < 0
+                    wn -= 1
+                end
+            end
+        end
+        return wn != 0
+    end
+
+    # Fill grid: 1 inside polygon, 0 outside
+    BOUND = [point_in_polygon(i, j, points) ? 1 : 0 for i in 1:nx, j in 1:ny]
+
+    ON = findall(x -> x > 0, vec(BOUND))
+    OFF = findall(x -> x == 0, vec(BOUND))
+    numactivenodes = length(OFF)
+
+    return (BOUND, ON, OFF, numactivenodes)
+end
   ╠═╡ =#
 
-# ╔═╡ 16f3b923-2db3-4ffc-923f-d90a51dd3b08
-begin	#define constants
+# ╔═╡ bb8363b2-a1f8-495c-92ef-140083a4624b
+begin
 	omega = 1.0;
 	fluid_density = 1.0;
-	radius = 5.
 	
 	nx = 64;
 	ny = 32;	
@@ -124,92 +117,12 @@ begin	#define constants
 	deltaU=1e-7;
 end
 
-# ╔═╡ 40adc09c-e23a-4362-b4b8-764cd0834748
-function plot_everything(pltUX, pltUY, pltDENSITY, pltOFF, pltBOUND, pltxshift, pltyshift, pltradius)
-	# Flip BOUND as imshow in PyPlot uses origin="lower"
-		data = 1 .- pltBOUND'
-		nx_center = round(Int, nx / 2 + pltxshift)
-		ny_center = round(Int, ny / 2 + pltyshift)
-		
-		# Plot heatmap
-		a = heatmap(
-		    data,
-		    c=:hot,
-		    clims=(0.0, 1.0),
-		    aspect_ratio=:equal,
-		    xlabel="x",
-		    ylabel="y",
-		    title="Circle of radius $pltradius at ($nx_center, $ny_center)",
-		    framestyle=:box
-		)
-		
-		# Create folder and save image
-		savepath = "/Users/Charlie/Documents/InputImages/"
-		mkpath(savepath)
-		filename = string(savepath, "input", pltxshift, ".", pltyshift, ".png")
-		savefig(a, filename)
-
-		# Correct 2D array transposition using permutedims
-		base_img = 1 .- pltBOUND'
-		density_img = pltDENSITY[:,:]'
-		density_min = mean(pltDENSITY[pltOFF]) - 3std(pltDENSITY[pltOFF])
-		
-		# Plot base image (hot background)
-		b= heatmap(
-		    base_img,
-		    color=:hot,
-		    clims=(0.0, 1.0),
-		    aspect_ratio=:equal,
-		    xlabel="x",
-		    ylabel="y",
-		    framestyle=:box,
-		    legend=false
-		)
-		
-		# Overlay density (transparent bwr layer)
-		heatmap!(
-		    density_img,
-		    color=:bwr,
-		    clims=(density_min, maximum(pltDENSITY)),
-		    alpha=0.6,
-		    legend=true
-		)
-		
-		# Transpose velocity fields for quiver plot
-		UXp = pltUX[:, :]'
-		UYp = pltUY[:, :]'
-		
-		X = repeat(collect(1:nx)', ny, 1)
-		Y = repeat(collect(1:ny), 1, nx)
-
-		quiver!(
-		    vec(X),
-		    vec(Y),
-		    quiver=(vec(UXp), vec(UYp)),
-		    color=:black,
-		    lw=0.5,
-		    legend=false
-		)
-	
-		# Title with math formatting
-		title!("Converged Flow Field")
-		
-		# Set y-limits
-		ylims!(0, ny)
-		xlims!(0, nx)
-		
-		# Save to file
-		savepath = "/Users/Charlie/Documents/OutputImages/"
-		mkpath(savepath)
-		filename = string(savepath, "output", pltxshift, ".", pltyshift, ".png")
-		savefig(b, filename)
-end
-
 # ╔═╡ 8c063ce1-3095-450f-946f-1c8dfe87c6f2
+#=╠═╡
 begin
-	function get_images(xshift, yshift; save=true, convergencePlot=false)
+	function get_images(xshift, yshift; radius=7, n=4)
 		#generates an input/output pair of images with a circle with the given position shift
-
+		
 		avu=1; prevavu=1;
 		ts=0;
 		avus = zeros(Float64, 100000)
@@ -235,8 +148,8 @@ begin
 		UY = zeros(Int, nx, ny)
 		
 		#code that makes the blockage
-		BOUND, ON, OFF, numactivenodes = circle_setboundary(nx, ny, 5, xshift, yshift)
-		#return BOUND/ON separately to make the train/test dataset?
+		BOUND, ON, OFF, numactivenodes = polygon_setboundary(nx, ny, n, xshift, yshift, radius)
+		
 	
 		# linear indices in F of occupied nodes
 		TO_REFLECT=[ON.+CI[1] ON.+CI[2] ON.+CI[3] ON.+CI[4] ON.+CI[5] ON.+CI[6] ON.+CI[7] ON.+CI[8]];
@@ -318,32 +231,177 @@ begin
 		    ts = ts+1;
 		end
 		
-		if save==true
-			plot_everything(UX, UY, DENSITY, OFF, BOUND, xshift, yshift, radius)
-		end
+		# if save==true
+		# 	plot_everything(UX, UY, DENSITY, OFF, BOUND, xshift, yshift, radius)
+		# end
 		
-		return [UX, UY, DENSITY, OFF, BOUND, xshift, yshift, radius]
+		return [BOUND, UX, UY, DENSITY]
 	end
+end
+  ╠═╡ =#
+
+# ╔═╡ 40adc09c-e23a-4362-b4b8-764cd0834748
+function plot_everything(pltBOUND, pltUX, pltUY, pltDENSITY, number)
+	# Flip BOUND as imshow in PyPlot uses origin="lower"
+		pltOFF = findall(x -> x == 0, vec(pltBOUND))
+		data = 1 .- pltBOUND'
+		
+		# Plot heatmap
+		a = heatmap(
+		    data,
+		    c=:hot,
+		    clims=(0.0, 1.0),
+		    aspect_ratio=:equal,
+		    xlabel="x",
+		    ylabel="y",
+		    title="Input Image",
+		    framestyle=:box,
+			colorbar=false
+		)
+		
+		# Create folder and save image
+		savepath = "/Users/Charlie/Documents/InputImages/"
+		mkpath(savepath)
+		filename = string(savepath, "input", number, ".png")
+		savefig(a, filename)
+
+		# Correct 2D array transposition using permutedims
+		base_img = 1 .- pltBOUND'
+		density_img = pltDENSITY[:,:]'
+		density_min = mean(pltDENSITY[pltOFF]) - 3std(pltDENSITY[pltOFF])
+		
+		# Plot base image (hot background)
+		b= heatmap(
+		    base_img,
+		    color=:hot,
+		    clims=(0.0, 1.0),
+		    aspect_ratio=:equal,
+		    xlabel="x",
+		    ylabel="y",
+		    framestyle=:box,
+		    legend=false
+		)
+		
+		# Overlay density (transparent bwr layer)
+		heatmap!(
+		    density_img,
+		    color=:bwr,
+		    clims=(density_min, maximum(pltDENSITY)),
+		    alpha=0.6,
+		    legend=true
+		)
+		
+		# Transpose velocity fields for quiver plot
+		UXp = pltUX[:, :]'
+		UYp = pltUY[:, :]'
+		
+		X = repeat(collect(1:nx)', ny, 1)
+		Y = repeat(collect(1:ny), 1, nx)
+
+		quiver!(
+		    vec(X),
+		    vec(Y),
+		    quiver=(vec(UXp), vec(UYp)),
+		    color=:black,
+		    lw=0.5,
+		    legend=false
+		)
+	
+		# Title with math formatting
+		title!("Converged Flow Field")
+		
+		# Set y-limits
+		ylims!(0, ny)
+		xlims!(0, nx)
+		
+		# Save to file
+		savepath = "/Users/Charlie/Documents/OutputImages/"
+		mkpath(savepath)
+		filename = string(savepath, "output", number, ".png")
+		savefig(b, filename)
 end
 
 # ╔═╡ 4f2edbbc-fa4b-4b0e-926d-31a5470266e2
-begin
-	outputs = Vector{Any}(undef, 4)  # preallocate output array
+# begin
+# 	outputs = Vector{Any}(undef, 4)  # preallocate output array
 
-	Threads.@threads for i in 1:4
-		outputs[i] = get_images(i, 0, save=false)
-	end
-end
+# 	Threads.@threads for i in 1:4
+# 		outputs[i] = get_images(i, 0, save=false)
+# 	end
+# end
 
 # ╔═╡ c04b8b5b-9696-4d5b-8134-ab9fa1bc1150
-for i in 1:4
-	plot_everything(outputs[i]...)
+# for i in 1:4
+# 	plot_everything(outputs[i]...)
+# end
+
+# ╔═╡ 1eaff883-6573-4817-ae77-caf9274e0712
+# for i in -3:3
+# 	get_images(i, 0, save=true, convergencePlot=false, radius=10, circle=false, n=4)
+# end
+
+# ╔═╡ e610cb36-01bd-4b0a-8b9d-331b49ad390b
+#=╠═╡
+begin
+# Thread-safe dataset generation
+function create_dataset(n_samples::Int, nx::Int=64, ny::Int=32, savefile::String="fluid_data.jld2")
+    nthreads = Threads.nthreads()
+    println("Using $nthreads threads.")
+
+    # Preallocate storage
+    xdata = Array{Float32}(undef, nx, ny, 1, n_samples)
+    ydata = Array{Float32}(undef, nx, ny, 3, n_samples)
+
+    Threads.@threads for i in 1:n_samples
+        # Ensure thread-local RNG for reproducibility
+		radius = rand(5:12)
+		xshift = rand(-20:20)
+		yshift = rand(-5:5)
+		n = rand(3:8)
+		
+        BOUND, ux, uy, rho = get_images(xshift, yshift; radius=radius, n=n)
+
+        # Safely write to preallocated slot
+        xdata[:, :, 1, i] = BOUND
+        ydata[:, :, 1, i] = ux
+        ydata[:, :, 2, i] = uy
+        ydata[:, :, 3, i] = rho
+    end
+
+    # Save dataset
+    @save savefile xdata ydata
+    println("Saved dataset with $n_samples samples to $savefile")
+end
+end
+
+  ╠═╡ =#
+
+# ╔═╡ 1c52d6a2-9bee-4d0d-a89b-a8fb561c90bf
+#=╠═╡
+create_dataset(10) #makes a file that's stored on the computer for later training
+  ╠═╡ =#
+
+# ╔═╡ a34b1d00-c9d2-4368-90cc-2199ade745cc
+@load "fluid_data.jld2" xdata ydata #loads the file into arrays
+
+# ╔═╡ 31e2ab15-93c2-4419-b4e4-18eec47cf38e
+begin
+	for i in 1:length(xdata[1, 1, 1, :])
+		BOUND = xdata[:, :, 1, i]
+		Ux = ydata[:, :, 1, i]
+		Uy = ydata[:, :, 2, i]
+		rho = ydata[:, :, 3, i]
+	
+		plot_everything(BOUND, Ux, Uy, rho, i)
+	end
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 FileIO = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
+GeometryBasics = "5c1252a2-5f33-56bf-86c9-59e7332b4326"
+JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
@@ -352,6 +410,8 @@ Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [compat]
 FileIO = "~1.17.0"
+GeometryBasics = "~0.5.5"
+JLD2 = "~0.5.11"
 Plots = "~1.40.12"
 """
 
@@ -361,7 +421,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.10.9"
 manifest_format = "2.0"
-project_hash = "a9dfaa7ff24e8013be7d8a026f92f79f952ee25a"
+project_hash = "42df42799afe289bd78597317d9af2cf64848aa1"
 
 [[deps.AliasTables]]
 deps = ["PtrArrays", "Random"]
@@ -501,6 +561,12 @@ deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 version = "1.6.0"
 
+[[deps.EarCut_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
+git-tree-sha1 = "e3290f2d49e661fbd94046d7e3726ffcb2d41053"
+uuid = "5ae413db-bbd1-5e63-b57d-d24a61df00f5"
+version = "2.2.4+0"
+
 [[deps.EpollShim_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
 git-tree-sha1 = "8a4be429317c42cfae6a7fc03c31bad1970c310d"
@@ -518,6 +584,11 @@ deps = ["Artifacts", "JLLWrappers", "Libdl"]
 git-tree-sha1 = "d55dffd9ae73ff72f1c0482454dcf2ec6c6c4a63"
 uuid = "2e619515-83b5-522b-bb60-26c02a35a201"
 version = "2.6.5+0"
+
+[[deps.Extents]]
+git-tree-sha1 = "063512a13dbe9c40d999c439268539aa552d1ae6"
+uuid = "411431e0-e8b7-467b-b5e0-f676ba4f2910"
+version = "0.1.5"
 
 [[deps.FFMPEG]]
 deps = ["FFMPEG_jll"]
@@ -591,6 +662,23 @@ git-tree-sha1 = "98fc192b4e4b938775ecd276ce88f539bcec358e"
 uuid = "d2c73de3-f751-5644-a686-071e5b155ba9"
 version = "0.73.14+0"
 
+[[deps.GeoFormatTypes]]
+git-tree-sha1 = "8e233d5167e63d708d41f87597433f59a0f213fe"
+uuid = "68eda718-8dee-11e9-39e7-89f7f65f511f"
+version = "0.4.4"
+
+[[deps.GeoInterface]]
+deps = ["DataAPI", "Extents", "GeoFormatTypes"]
+git-tree-sha1 = "294e99f19869d0b0cb71aef92f19d03649d028d5"
+uuid = "cf35fbd7-0cd7-5166-be24-54bfbe79505f"
+version = "1.4.1"
+
+[[deps.GeometryBasics]]
+deps = ["EarCut_jll", "Extents", "GeoInterface", "IterTools", "LinearAlgebra", "PrecompileTools", "Random", "StaticArrays"]
+git-tree-sha1 = "3ba0e2818cc2ff79a5989d4dca4bc63120a98bd9"
+uuid = "5c1252a2-5f33-56bf-86c9-59e7332b4326"
+version = "0.5.5"
+
 [[deps.Gettext_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Libiconv_jll", "Pkg", "XML2_jll"]
 git-tree-sha1 = "9b02998aba7bf074d14de89f9d37ca24a1a0b046"
@@ -634,6 +722,17 @@ uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 git-tree-sha1 = "e2222959fbc6c19554dc15174c81bf7bf3aa691c"
 uuid = "92d709cd-6900-40b7-9082-c6be49f344b6"
 version = "0.2.4"
+
+[[deps.IterTools]]
+git-tree-sha1 = "42d5f897009e7ff2cf88db414a389e5ed1bdd023"
+uuid = "c8e1da08-722c-5040-9ed9-7db0dc04731e"
+version = "1.10.0"
+
+[[deps.JLD2]]
+deps = ["FileIO", "MacroTools", "Mmap", "OrderedCollections", "PrecompileTools", "Requires", "TranscodingStreams"]
+git-tree-sha1 = "91d501cb908df6f134352ad73cde5efc50138279"
+uuid = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+version = "0.5.11"
 
 [[deps.JLFzf]]
 deps = ["REPL", "Random", "fzf_jll"]
@@ -1069,6 +1168,25 @@ git-tree-sha1 = "83e6cce8324d49dfaf9ef059227f91ed4441a8e5"
 uuid = "860ef19b-820b-49d6-a774-d7a799459cd3"
 version = "1.0.2"
 
+[[deps.StaticArrays]]
+deps = ["LinearAlgebra", "PrecompileTools", "Random", "StaticArraysCore"]
+git-tree-sha1 = "0feb6b9031bd5c51f9072393eb5ab3efd31bf9e4"
+uuid = "90137ffa-7385-5640-81b9-e52037218182"
+version = "1.9.13"
+
+    [deps.StaticArrays.extensions]
+    StaticArraysChainRulesCoreExt = "ChainRulesCore"
+    StaticArraysStatisticsExt = "Statistics"
+
+    [deps.StaticArrays.weakdeps]
+    ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
+    Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+
+[[deps.StaticArraysCore]]
+git-tree-sha1 = "192954ef1208c7019899fbf8049e717f92959682"
+uuid = "1e83bf80-4336-4d27-bf5d-d5a4f845583c"
+version = "1.4.3"
+
 [[deps.Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]
 uuid = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
@@ -1448,12 +1566,17 @@ version = "1.4.1+2"
 # ╠═9035c031-7a52-4f1f-ae22-1e5a9a02500c
 # ╟─dfd8a12b-3517-4747-a052-09399fe245d7
 # ╟─7629d59a-c892-4c38-8c6a-5164b313c451
-# ╠═2172e7f7-3f09-4ed0-885b-48f4812dc7f9
-# ╟─e082309c-e705-4c22-8e27-482930120c5f
-# ╠═16f3b923-2db3-4ffc-923f-d90a51dd3b08
+# ╟─2172e7f7-3f09-4ed0-885b-48f4812dc7f9
+# ╠═e082309c-e705-4c22-8e27-482930120c5f
+# ╠═bb8363b2-a1f8-495c-92ef-140083a4624b
 # ╠═8c063ce1-3095-450f-946f-1c8dfe87c6f2
 # ╠═40adc09c-e23a-4362-b4b8-764cd0834748
 # ╠═4f2edbbc-fa4b-4b0e-926d-31a5470266e2
 # ╠═c04b8b5b-9696-4d5b-8134-ab9fa1bc1150
+# ╠═1eaff883-6573-4817-ae77-caf9274e0712
+# ╠═e610cb36-01bd-4b0a-8b9d-331b49ad390b
+# ╠═1c52d6a2-9bee-4d0d-a89b-a8fb561c90bf
+# ╠═a34b1d00-c9d2-4368-90cc-2199ade745cc
+# ╠═31e2ab15-93c2-4419-b4e4-18eec47cf38e
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
